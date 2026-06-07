@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strict": false,
+    "sourceMap": false,
+    "outDir": "tests-build",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["es2020", "dom"],
+    "types": ["node"]
+  },
+  "include": ["src/format.ts", "src/parser.ts", "src/probe.ts", "tests/run.ts"],
+  "exclude": ["src/collector.ts", "src/statusBar.component.ts", "src/statusBarInjector.service.ts", "src/index.ts"]
+}

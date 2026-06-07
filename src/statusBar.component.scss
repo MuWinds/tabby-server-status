@@ -1,0 +1,144 @@
+/*
+ * 所有选择器一律 sb- 前缀，避免与 Bootstrap (.row/.item) 或 Tabby 全局
+ * 样式冲突。之前用裸 .row 时 ng-bootstrap 的 .row { display:flex }
+ * 会让我们的 .item 被当成栅格列处理，每个占 100% 宽度——这就是"每个
+ * 指标占一行"的根因。
+ *
+ * 字号策略：font 系列属性一律 inherit。Tabby 把组件挂到 ssh-tab 内，
+ * 父级的字体设置（用户在 Tabby 设置里改的字号）会自动级联下来。
+ */
+
+.sb-root {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(30, 30, 46, 0.92);
+    color: #cdd6f4;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.4);
+    user-select: none;
+    // 字号 / 字体不在这里写死——由组件 TS 代码读 ConfigService.store.terminal
+    // 然后 inline style 设到 elRef.nativeElement 上，严格跟随 Tabby 终端字号。
+    // 子元素用 em，会按这个根字号按比例缩放。
+}
+
+.sb-row {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 3px 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 12px;          // 行间 2px、列间 12px
+}
+
+.sb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;          // 不让 flex 父级强行 stretch；按内容宽度
+    font-variant-numeric: tabular-nums;
+    opacity: 0.92;
+
+    &.sb-info {
+        opacity: 0.6;
+        font-style: italic;
+    }
+
+    &.sb-error {
+        color: #f9e2af;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+// 指标块：[label][spark][value] 三联体
+.sb-metric {
+    .sb-label {
+        opacity: 0.55;
+        font-size: 0.9em;
+    }
+    .sb-value {
+        font-weight: 600;
+        min-width: 2.5em;       // 数字位宽稳定，避免跳动
+        text-align: right;
+    }
+    .sb-spark {
+        // sparkline 块字符固有的字距/行距很紧；这里再压一点让它紧凑
+        letter-spacing: -0.5px;
+        line-height: 1;
+        // 不允许 spark 撑大行高
+        font-size: 1.1em;
+    }
+}
+
+// 各 metric 的 sparkline 颜色——用 Catppuccin 调色板，跟暗色背景对比好
+.sb-cpu-spark { color: #f38ba8; }   // 红粉，CPU 高负载语义
+.sb-mem-spark { color: #cba6f7; }   // 紫，内存
+.sb-tx-spark  { color: #a6e3a1; }   // 绿，上行
+.sb-rx-spark  { color: #89b4fa; }   // 蓝，下行
+
+.sb-btn {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    opacity: 0.55;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+
+    &:hover {
+        opacity: 1;
+        color: #89b4fa;
+    }
+
+    .sb-spin {
+        display: inline-block;
+        animation: sb-spin 1.2s linear infinite;
+    }
+}
+
+@keyframes sb-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+// Top processes 展开面板（折叠时不渲染）
+.sb-top {
+    padding: 4px 12px 6px;
+    background: rgba(24, 24, 37, 0.95);
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.sb-top-title {
+    opacity: 0.55;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.sb-top-row {
+    display: flex;
+    gap: 10px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+
+    .sb-top-cpu {
+        min-width: 4em;
+        text-align: right;
+        color: #a6e3a1;
+    }
+
+    .sb-top-cmd {
+        flex: 1 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 0.85;
+    }
+}
