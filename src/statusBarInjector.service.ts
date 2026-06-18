@@ -44,9 +44,11 @@ export class StatusBarInjectorService {
         // 新打开的 tab：tabOpened$ 对每个新 tab 都 fire
         this.app.tabOpened$.subscribe(tab => { this.scheduleInstall(tab) })
 
-        // 兜底：activeTabChange$ 覆盖启动时已存在的 tab 或 tabOpened 未 fire 的场景
-        this.app.activeTabChange$.subscribe(tab => {
-            if (tab) this.scheduleInstall(tab)
+        // active 切换：在新版 Tabby 中只有 active SSH 的 ssh-tab 出现在
+        // <split-tab> 容器下，所以每次 active 变化都遍历所有 SSH 重新检查
+        // （host 失效的会被 scheduleInstall 自动清理重装）
+        this.app.activeTabChange$.subscribe(() => {
+            for (const ssh of this.collectAllSshTabs()) this.scheduleInstall(ssh)
         })
 
         for (const tab of this.app.tabs) {
@@ -55,13 +57,32 @@ export class StatusBarInjectorService {
     }
 
     /**
-     * 为指定 tab 安排安装（如果它是 SSH 类型且尚未安装）。
-     * 最多重试 20 次（每次间隔 100ms），等待 DOM 渲染就绪。
+     * 为指定 tab 安排安装。
+     *
+     * 三种状态：
+     * 1. 不是 SSH tab → 跳过
+     * 2. 已装且 host 还在 DOM 里 → 跳过
+     * 3. 已装但 host 被孤立（重连导致 split-tab 下 ssh-tab 重建）→ 清理重装
+     * 4. 未装 → 重试 20 次（每次间隔 100ms）等待 DOM 渲染就绪
+     *
      * @param tab 任意 Tabby tab 实例
      */
     private scheduleInstall (tab: BaseTabComponent): void {
         if (!(tab instanceof SSHTabComponent)) return
-        if (this.installed.has(tab)) return
+
+        const existing = this.installed.get(tab)
+        if (existing) {
+            const node = (existing.hostView as EmbeddedViewRef<unknown>).rootNodes[0] as HTMLElement
+            if (node && node.isConnected) return
+            // host 已被 detach（active 切换/重连导致 split-tab 下 ssh-tab 重建），清理后走重装流程
+            try {
+                this.appRef.detachView(existing.hostView)
+                existing.destroy()
+            } catch (e: unknown) {
+                // 已被宿主销毁，忽略
+            }
+            this.installed.delete(tab)
+        }
 
         let attemptsLeft = 20
         const tryOnce = () => {
@@ -79,22 +100,32 @@ export class StatusBarInjectorService {
     }
 
     /**
-     * 按位置匹配：收集所有 SSH 类型 tab，按 `app.tabs` 扁平顺序索引
-     * 找到对应 DOM 中同索引的 `<ssh-tab>` 元素。
+     * 查找当前 SSH tab 对应的 DOM 宿主元素。
+     *
+     * 新版 Tabby（5.x+）DOM 结构：每个顶层 tab 被独立的 `<split-tab>` 容器
+     * 包裹，里面恰好有一个 `<ssh-tab>` 元素。SplitTab 容器 ↔ SSHTabComponent
+     * 是 1:1 关系。屏幕外/屏幕内的切换通过 split-tab 整体 transform 实现，
+     * 不会重建 ssh-tab DOM 元素。
+     *
+     * 因此 inSplit 数组的顺序与 collectAllSshTabs 顺序对齐（Angular `*ngFor`
+     * 按 app.tabs 顺序渲染），用 indexOf 直接 1:1 匹配即可。
+     *
+     * 旧版 Tabby（无 SplitTab 包装）走 fallback 路径：直接按全局索引 1:1 匹配。
      *
      * @param tab SSH tab 组件实例
-     * @returns DOM 宿主元素；未找到或已安装时返回 null
+     * @returns DOM 宿主元素；找不到或已装时返回 null
      */
     private findHostForTab (tab: SSHTabComponent): HTMLElement | null {
-        const sshTabs = this.collectAllSshTabs()
-        const index = sshTabs.indexOf(tab)
+        const all = Array.from(document.querySelectorAll('ssh-tab')) as HTMLElement[]
+        const inSplit = all.filter(el => el.parentElement?.tagName.toLowerCase() === 'split-tab')
+
+        const index = this.collectAllSshTabs().indexOf(tab)
         if (index < 0) return null
 
-        const elements = document.querySelectorAll('ssh-tab')
-        const host = elements[index] as HTMLElement | undefined
+        // 优先 inSplit 按索引匹配；没有则降级到全局 all 按索引匹配
+        const host = inSplit[index] ?? all[index]
         if (!host) return null
 
-        // 防止并发 retry 导致重复安装
         if (host.querySelector(':scope > server-status-bar')) return null
         return host
     }
