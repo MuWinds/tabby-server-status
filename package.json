@@ -1,10 +1,18 @@
 {
   "name": "tabby-server-status",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tabby plugin that shows live server status (IP, CPU, memory, network I/O, OS, timezone, uptime, top processes) on the SSH tab toolbar.",
   "keywords": ["tabby-plugin"],
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
+  "homepage": "https://github.com/MuWinds/tabby-server-status#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MuWinds/tabby-server-status.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MuWinds/tabby-server-status/issues"
+  },
   "scripts": {
     "build": "webpack --progress --color",
     "watch": "webpack --progress --color --watch"
